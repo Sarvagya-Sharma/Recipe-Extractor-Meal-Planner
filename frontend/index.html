@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recipe Extractor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header span { font-size: 20px; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #e0e0e0;
+      background: #fff;
+      padding: 0 32px;
+    }
+    .tab {
+      padding: 12px 24px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+    .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+    /* ── Main content ── */
+    main { max-width: 900px; margin: 32px auto; padding: 0 24px; }
+
+    /* ── URL Input ── */
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .input-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .input-row input:focus { outline: none; border-color: #2563eb; }
+    .btn {
+      padding: 10px 20px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:disabled { background: #93c5fd; cursor: not-allowed; }
+    .btn-outline {
+      background: #fff;
+      color: #2563eb;
+      border: 1px solid #2563eb;
+    }
+
+    /* ── Error / loading ── */
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      color: #dc2626;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .loading {
+      text-align: center;
+      padding: 60px 0;
+      color: #666;
+      font-size: 15px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 28px; height: 28px;
+      border: 3px solid #e0e0e0;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Cards ── */
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #2563eb;
+      margin-bottom: 14px;
+    }
+
+    /* ── Recipe header card ── */
+    .recipe-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .recipe-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .badge {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge.green  { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+    .badge.orange { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+    .badge.red    { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+
+    /* ── Ingredients ── */
+    .ingredient-row {
+      display: flex;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+      align-items: baseline;
+    }
+    .ingredient-row:last-child { border-bottom: none; }
+    .ing-qty  { min-width: 40px; font-weight: 600; color: #374151; }
+    .ing-unit { min-width: 60px; color: #6b7280; }
+    .ing-item { color: #111; }
+
+    /* ── Instructions ── */
+    .step {
+      display: flex;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      min-width: 26px; height: 26px;
+      background: #2563eb;
+      color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ── Nutrition ── */
+    .nutrition-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .nutrition-cell {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+    .nutrition-cell .val { font-size: 22px; font-weight: 700; color: #2563eb; }
+    .nutrition-cell .lbl { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+    /* ── Shopping list ── */
+    .shop-category { margin-bottom: 14px; }
+    .shop-category h3 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+    .shop-items { display: flex; flex-wrap: wrap; gap: 6px; }
+    .shop-item {
+      background: #f3f4f6;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    /* ── Substitutions / Related ── */
+    .list-item {
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .list-item:last-child { border-bottom: none; }
+    .list-item::before { content: "•"; color: #2563eb; font-weight: 700; flex-shrink: 0; }
+
+    /* ── History table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      text-align: left;
+      padding: 10px 14px;
+      background: #f9fafb;
+      border-bottom: 2px solid #e5e7eb;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #6b7280;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f3f4f6;
+      color: #374151;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9fafb; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 40px 16px;
+      z-index: 100;
+      overflow-y: auto;
+    }
+    .modal {
+      background: #f5f5f5;
+      border-radius: 10px;
+      width: 100%; max-width: 820px;
+      padding: 24px;
+      position: relative;
+    }
+    .modal-close {
+      position: absolute; top: 16px; right: 16px;
+      background: none; border: none;
+      font-size: 22px; cursor: pointer; color: #666;
+    }
+    .empty {
+      text-align: center; padding: 60px 0; color: #9ca3af; font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const API = "http://127.0.0.1:8000";
+
+
+function diffBadge(d) {
+  if (!d) return "badge";
+  const l = d.toLowerCase();
+  if (l === "easy")   return "badge green";
+  if (l === "hard")   return "badge red";
+  return "badge orange";
+}
+
+
+function RecipeDetail({ recipe }) {
+  if (!recipe) return null;
+  const n = recipe.nutrition_estimate || {};
+
+  return (
+    <>
+      {/* ── Header ── */}
+      <div className="card">
+        <div className="recipe-title">{recipe.title}</div>
+        <div style={{color:"#6b7280", fontSize:14, marginTop:4}}>{recipe.url}</div>
+        <div className="recipe-meta">
+          {recipe.cuisine    && <span className="badge">{recipe.cuisine}</span>}
+          {recipe.difficulty && <span className={diffBadge(recipe.difficulty)}>{recipe.difficulty}</span>}
+          {recipe.prep_time  && <span className="badge">Prep: {recipe.prep_time}</span>}
+          {recipe.cook_time  && <span className="badge">Cook: {recipe.cook_time}</span>}
+          {recipe.total_time && <span className="badge">Total: {recipe.total_time}</span>}
+          {recipe.servings   && <span className="badge">Serves: {recipe.servings}</span>}
+        </div>
+      </div>
+
+      {/* ── Ingredients ── */}
+      {recipe.ingredients?.length > 0 && (
+        <div className="card">
+          <h2>Ingredients</h2>
+          {recipe.ingredients.map((ing, i) => (
+            <div className="ingredient-row" key={i}>
+              <span className="ing-qty">{ing.quantity}</span>
+              <span className="ing-unit">{ing.unit}</span>
+              <span className="ing-item">{ing.item}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Instructions ── */}
+      {recipe.instructions?.length > 0 && (
+        <div className="card">
+          <h2>Instructions</h2>
+          {recipe.instructions.map((step, i) => (
+            <div className="step" key={i}>
+              <div className="step-num">{i + 1}</div>
+              <div>{step}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Nutrition ── */}
+      {Object.keys(n).length > 0 && (
+        <div className="card">
+          <h2>Nutrition Estimate (per serving)</h2>
+          <div className="nutrition-grid">
+            {n.calories !== undefined && (
+              <div className="nutrition-cell">
+                <div className="val">{n.calories}</div>
+                <div className="lbl">Calories</div>
+              </div>
+            )}
+            {n.protein && (
+              <div className="nutrition-cell">
+                <div className="val">{n.protein}</div>
+                <div className="lbl">Protein</div>
+              </div>
+            )}
+            {n.carbs && (
+              <div className="nutrition-cell">
+                <div className="val">{n.carbs}</div>
+                <div className="lbl">Carbs</div>
+              </div>
+            )}
+            {n.fat && (
+              <div className="nutrition-cell">
+                <div className="val">{n.fat}</div>
+                <div className="lbl">Fat</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Substitutions ── */}
+      {recipe.substitutions?.length > 0 && (
+        <div className="card">
+          <h2>Ingredient Substitutions</h2>
+          {recipe.substitutions.map((s, i) => (
+            <div className="list-item" key={i}>{s}</div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Shopping list ── */}
+      {recipe.shopping_list && Object.keys(recipe.shopping_list).length > 0 && (
+        <div className="card">
+          <h2>Shopping List</h2>
+          {Object.entries(recipe.shopping_list).map(([cat, items]) => (
+            <div className="shop-category" key={cat}>
+              <h3>{cat}</h3>
+              <div className="shop-items">
+                {items.map((item, i) => (
+                  <span className="shop-item" key={i}>{item}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Related recipes ── */}
+      {recipe.related_recipes?.length > 0 && (
+        <div className="card">
+          <h2>Related Recipes</h2>
+          {recipe.related_recipes.map((r, i) => (
+            <div className="list-item" key={i}>{r}</div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+
+function ExtractTab() {
+  const [url, setUrl]       = React.useState("");
+  const [recipe, setRecipe] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError]   = React.useState("");
+
+  async function handleExtract() {
+    if (!url.trim()) return;
+    setLoading(true);
+    setError("");
+    setRecipe(null);
+    try {
+      const res = await fetch(`${API}/recipe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Something went wrong");
+      setRecipe(data);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="input-row">
+        <input
+          type="text"
+          placeholder="Paste a recipe URL e.g. https://www.allrecipes.com/recipe/..."
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleExtract()}
+        />
+        <button className="btn" onClick={handleExtract} disabled={loading || !url.trim()}>
+          {loading ? "Extracting…" : "Extract Recipe"}
+        </button>
+      </div>
+
+      {error && <div className="error">⚠ {error}</div>}
+
+      {loading && (
+        <div className="loading">
+          <div className="spinner"></div>
+          <div>Scraping page and calling LLM — this takes ~10 seconds…</div>
+        </div>
+      )}
+
+      {recipe && <RecipeDetail recipe={recipe} />}
+    </div>
+  );
+}
+
+
+function HistoryTab() {
+  const [recipes, setRecipes] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError]     = React.useState("");
+  const [modal, setModal]     = React.useState(null);   // full recipe for modal
+  const [modalLoading, setModalLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch(`${API}/recipes`)
+      .then(r => r.json())
+      .then(d => { setRecipes(d.recipes || []); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, []);
+
+  async function openModal(id) {
+    setModalLoading(true);
+    setModal({ _loading: true });
+    try {
+      const res  = await fetch(`${API}/recipes/${id}`);
+      const data = await res.json();
+      setModal(data);
+    } catch (e) {
+      setModal(null);
+      alert("Failed to load recipe: " + e.message);
+    } finally {
+      setModalLoading(false);
+    }
+  }
+
+  function fmt(dateStr) {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      year: "numeric", month: "short", day: "numeric",
+    });
+  }
+
+  return (
+    <div>
+      {error  && <div className="error">⚠ {error}</div>}
+      {loading && <div className="loading"><div className="spinner"></div><div>Loading history…</div></div>}
+
+      {!loading && recipes.length === 0 && (
+        <div className="empty">No recipes extracted yet. Go to Tab 1 to extract your first recipe.</div>
+      )}
+
+      {!loading && recipes.length > 0 && (
+        <div className="card" style={{padding:0, overflow:"hidden"}}>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Title</th>
+                <th>Cuisine</th>
+                <th>Difficulty</th>
+                <th>Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {recipes.map(r => (
+                <tr key={r.id}>
+                  <td style={{color:"#9ca3af"}}>{r.id}</td>
+                  <td style={{fontWeight:600}}>{r.title || "—"}</td>
+                  <td>{r.cuisine || "—"}</td>
+                  <td>
+                    {r.difficulty
+                      ? <span className={diffBadge(r.difficulty)}>{r.difficulty}</span>
+                      : "—"}
+                  </td>
+                  <td style={{color:"#6b7280"}}>{fmt(r.created_at)}</td>
+                  <td>
+                    <button className="btn btn-outline" style={{padding:"5px 14px", fontSize:13}}
+                      onClick={() => openModal(r.id)}>
+                      Details
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      
+      {modal && (
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setModal(null); }}>
+          <div className="modal">
+            <button className="modal-close" onClick={() => setModal(null)}>✕</button>
+            {modal._loading
+              ? <div className="loading"><div className="spinner"></div><div>Loading…</div></div>
+              : <RecipeDetail recipe={modal} />
+            }
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function App() {
+  const [tab, setTab] = React.useState("extract");
+
+  return (
+    <>
+      <header>
+        <span>🍳</span>
+        <h1>Recipe Extractor & Meal Planner</h1>
+      </header>
+
+      <div className="tabs">
+        <button className={`tab ${tab === "extract" ? "active" : ""}`} onClick={() => setTab("extract")}>
+          Tab 1 — Extract Recipe
+        </button>
+        <button className={`tab ${tab === "history" ? "active" : ""}`} onClick={() => setTab("history")}>
+          Tab 2 — History
+        </button>
+      </div>
+
+      <main>
+        {tab === "extract" ? <ExtractTab /> : <HistoryTab />}
+      </main>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
